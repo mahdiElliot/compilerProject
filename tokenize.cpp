@@ -352,19 +352,24 @@ string nextToken(ifstream &myfile)
     return token;
 }
 
-void start(ifstream &file, vector<pair<string,string>> symbolTable);
-void mainCode(ifstream &file, vector<pair<string,string>> symbolTable, string &token);
-void insideMain(ifstream &file, vector<pair<string,string>> symbolTable, string &token);
-void declaration(ifstream &file, vector<pair<string,string>> symbolTable);
-void checkNumEquation(ifstream &file, vector<pair<string,string>> symbolTable, string &token);
-void checkNumAssignment(ifstream &file, vector<pair<string,string>> symbolTable, string &token);
-void checkOperands(ifstream &file, vector<pair<string,string>> symbolTable, string &token);
-void checkNumread(ifstream &file, vector<pair<string,string>>  symbolTable, string &token);
+void start(ifstream &file, vector<pair<string,string>> &symbolTable);
+void mainCode(ifstream &file, vector<pair<string,string>> &symbolTable, string &token);
+void insideMain(ifstream &file, vector<pair<string,string>> &symbolTable, string &token);
+void declaration(ifstream &file, vector<pair<string,string>> &symbolTable);
+void checkNumEquation(ifstream &file, vector<pair<string,string>> &symbolTable,
+string &token, bool &operand,bool &illegalAssignment);
+void checkNumAssignment(ifstream &file, vector<pair<string,string>> &symbolTable,
+string &token, bool &operand);
+void checkOperands(ifstream &file, vector<pair<string,string>> &symbolTable,
+string &token, bool &operand);
+void checkNumread(ifstream &file, vector<pair<string,string>>  &symbolTable,
+string &token);
 // void functions(ifstream &file, vector<pair<string,string>> symbolTable);
 
 
 int main()
 {
+    const int maxv = 100000;
     ifstream file;
     file.open("tslang", ios::in);
     vector<pair<string,string>> symbolTable;
@@ -374,7 +379,7 @@ int main()
     return 0;
 }
 
-void start(ifstream &file, vector<pair<string,string>> symbolTable)
+void start(ifstream &file, vector<pair<string,string>> &symbolTable)
 {
     string token = nextToken(file);
     if(Letter(token))        
@@ -394,7 +399,7 @@ void start(ifstream &file, vector<pair<string,string>> symbolTable)
     }
 }
 
-void mainCode(ifstream &file, vector<pair<string,string>> symbolTable, string &token)
+void mainCode(ifstream &file, vector<pair<string,string>> &symbolTable, string &token)
 {
     token = nextToken(file);
     if(openParenthesis(token[0]))
@@ -444,7 +449,7 @@ void mainCode(ifstream &file, vector<pair<string,string>> symbolTable, string &t
     }
 }
 
-void insideMain(ifstream &file, vector<pair<string,string>> symbolTable, string &token)
+void insideMain(ifstream &file, vector<pair<string,string>> &symbolTable, string &token)
 {
     if(local(token))
     {
@@ -469,7 +474,7 @@ void insideMain(ifstream &file, vector<pair<string,string>> symbolTable, string 
         if(s == -1)
         {
             validCode = false;
-            cout<<line<<":variable not declared"<<endl;
+            cout<<line<<": variable not declared"<<endl;
         }
         else
         {
@@ -479,7 +484,14 @@ void insideMain(ifstream &file, vector<pair<string,string>> symbolTable, string 
                 if(equal(token[0]))
                 {
                     token = nextToken(file);
-                    checkNumEquation(file, symbolTable, token);
+                    bool operand = false;
+                    bool illegalAssignment = false;
+                    checkNumEquation(file, symbolTable, token, operand,illegalAssignment);
+                    if(!operand && illegalAssignment)
+                    {
+                        validCode = false;
+                        cout<<line<<": illegal assignment!"<<endl;
+                    }
                     insideMain(file, symbolTable, token);
 
                 }
@@ -541,6 +553,7 @@ void insideMain(ifstream &file, vector<pair<string,string>> symbolTable, string 
     else if(semiColon(token[0]))
     {
         while(semiColon(token[0]))  token = nextToken(file);
+        insideMain(file,symbolTable, token);
     }
     else if(num(token) || list(token))
     {
@@ -560,7 +573,7 @@ void insideMain(ifstream &file, vector<pair<string,string>> symbolTable, string 
     }
 }
 
-void declaration(ifstream &file, vector<pair<string,string>> symbolTable)
+void declaration(ifstream &file, vector<pair<string,string>> &symbolTable)
 {
     string next = nextToken(file);
     if(Letter(next)){
@@ -605,11 +618,13 @@ void declaration(ifstream &file, vector<pair<string,string>> symbolTable)
     }
 }
 
-void checkNumEquation(ifstream &file, vector<pair<string,string>> symbolTable, string &token)
+void checkNumEquation(ifstream &file, vector<pair<string,string>> &symbolTable, string &token, bool &operand,bool &illegalAssignment)
 {
     if(isIntNumber(token) || isDoubleNumber(token))
     {
-        checkNumAssignment(file,symbolTable, token);
+        operand = true;
+        illegalAssignment = false;
+        checkNumAssignment(file,symbolTable, token, operand);
     }
     else if(Letter(token))
     {
@@ -621,26 +636,22 @@ void checkNumEquation(ifstream &file, vector<pair<string,string>> symbolTable, s
         }
         else
         {
-            string cur = token;
-            token = nextToken(file);
-            if(semiColon(token[0]))
-            {
-                if(list(symbolTable[s].second))
-                {
-                    validCode = false;
-                    cout<<line<<": illegal assignment!"<<endl;
-                }
-                while(semiColon(token[0]))  token = nextToken(file);
-            }
+            operand = false;
+            if(list(symbolTable[s].second))
+                illegalAssignment = true;
             else
-            {
-                token = cur;
-                checkOperands(file,symbolTable,token);
-            }
+                illegalAssignment = false;
+            
+            token = nextToken(file);
+            checkOperands(file,symbolTable,token, operand);
+            if(operand)
+                illegalAssignment = false;
         }
     }
     else if(numread(token))
     {
+        illegalAssignment = false;
+
         int curLine = line;
         checkNumread(file, symbolTable, token);
         if(semiColon(token[0]))
@@ -662,27 +673,34 @@ void checkNumEquation(ifstream &file, vector<pair<string,string>> symbolTable, s
     else if(openParenthesis(token[0]))
     {
         token = nextToken(file);
-        checkNumEquation(file,symbolTable, token);
+        checkNumEquation(file,symbolTable, token, operand,illegalAssignment);
         if(!closeParenthesis(token[0]))
         {
             validCode = false;
             cout<<line<<": ) is missing!"<<endl;
         }
-        token = nextToken(file);
+        else
+        {
+            token = nextToken(file);
+            if(!semiColon(token[0]))
+                checkOperands(file,symbolTable,token, operand);
+        }
     }
     else
     {
+        illegalAssignment = false;
         validCode = false;
         cout<<line<<": assignment is ambigous!"<<endl;
     }
 }
 
-void checkNumAssignment(ifstream &file, vector<pair<string,string>> symbolTable, string &token)
+void checkNumAssignment(ifstream &file, vector<pair<string,string>> &symbolTable, string &token, bool &operand)
 {
     if(isIntNumber(token) || isDoubleNumber(token))
     {
         token = nextToken(file);
-        checkOperands(file, symbolTable,token);
+        operand = true;
+        checkOperands(file, symbolTable,token, operand);
     }
     else if(Letter(token))
     {
@@ -694,57 +712,74 @@ void checkNumAssignment(ifstream &file, vector<pair<string,string>> symbolTable,
         }
         else
         {
-            if(list(symbolTable[s].second))
+            if(list(symbolTable[s].second) && operand)
             {
                 validCode = false;
                 cout<<line<<": incompatible operands!"<<endl;
             }
             token = nextToken(file);
-            checkOperands(file, symbolTable, token);
+            checkOperands(file, symbolTable, token, operand);
         }
     }
     else if(openParenthesis(token[0]))
     {
         token = nextToken(file);
-        checkNumAssignment(file, symbolTable, token);
-
+        checkNumAssignment(file, symbolTable, token, operand);
+        if(!closeParenthesis(token[0]))
+        {
+            validCode = false;
+            cout<<line<<": ) is missing!"<<endl;
+        }
+        else
+        {
+            token = nextToken(file);
+            if(!semiColon(token[0]))
+                checkOperands(file,symbolTable,token, operand);
+        }
+    }
+    else if(closeParenthesis(token[0]))
+    {
+        validCode = false;
+        cout<<line<<": expected an expression!"<<endl;
     }
 }
 
-void checkOperands(ifstream &file, vector<pair<string,string>> symbolTable, string &token)
+void checkOperands(ifstream &file, vector<pair<string,string>> &symbolTable, string &token, bool &operand)
 {
     if(semiColon(token[0]))
     {
-        while(semiColon(token[0]))  token = nextToken(file);
     }
     else if(add(token[0]))
     {
         token = nextToken(file);
-        checkNumAssignment(file, symbolTable, token);
+        operand = true;
+        checkNumAssignment(file, symbolTable, token, operand);
     }
     else if(sub(token[0]))
     {
         token = nextToken(file);
-        checkNumAssignment(file, symbolTable, token);
+        checkNumAssignment(file, symbolTable, token, operand);
     }
     else if(mul(token[0]))
     {
         token = nextToken(file);
-        checkNumAssignment(file, symbolTable, token);
+        operand = true;
+        checkNumAssignment(file, symbolTable, token, operand);
     }
     else if(div(token[0]))
     {
         token = nextToken(file);
-        checkNumAssignment(file, symbolTable, token);
+        operand = true;
+        checkNumAssignment(file, symbolTable, token, operand);
     }
     else if(mod(token[0]))
     {
         token = nextToken(file);
-        checkNumAssignment(file, symbolTable, token);
+        operand = true;
+        checkNumAssignment(file, symbolTable, token, operand);
     }
     else if(closeParenthesis(token[0]))
     {
-        token = nextToken(file);
     }
     else
     {
@@ -753,7 +788,7 @@ void checkOperands(ifstream &file, vector<pair<string,string>> symbolTable, stri
     }
 }
 
-void checkNumread(ifstream &file, vector<pair<string,string>>  symbolTable, string &token)
+void checkNumread(ifstream &file, vector<pair<string,string>>  &symbolTable, string &token)
 {
     int curLine = line;
     token = nextToken(file);
@@ -771,7 +806,10 @@ void checkNumread(ifstream &file, vector<pair<string,string>>  symbolTable, stri
                     token = nextToken(file);
             }
             else
-                checkNumAssignment(file, symbolTable, token);
+            {
+                bool operand = true;
+                checkNumAssignment(file, symbolTable, token, operand);
+            }
 
         }
         else
