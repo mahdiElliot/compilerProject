@@ -369,7 +369,6 @@ string &token);
 
 int main()
 {
-    const int maxv = 100000;
     ifstream file;
     file.open("tslang", ios::in);
     vector<pair<string,string>> symbolTable;
@@ -492,7 +491,9 @@ void insideMain(ifstream &file, vector<pair<string,string>> &symbolTable, string
                         validCode = false;
                         cout<<line<<": illegal assignment!"<<endl;
                     }
-                    insideMain(file, symbolTable, token);
+                    
+                    if(!closeParenthesis(token[0]) && !closeBrace(token[0]))
+                        insideMain(file, symbolTable, token);
 
                 }
                 else
@@ -561,10 +562,26 @@ void insideMain(ifstream &file, vector<pair<string,string>> &symbolTable, string
         cout<<line<<": no variable to declare"<<endl;
     }
     else if(token == "")    return;
+
     else if(closeParenthesis(token[0]))
     {
         validCode = false;
         cout<<line<<": expected an expression"<<endl;
+    }
+    else if(openParenthesis(token[0]))
+    {
+        token = nextToken(file);
+        insideMain(file, symbolTable, token);
+        if(closeParenthesis(token[0]))
+        {
+            token = nextToken(file);
+        }
+        else
+        {
+            validCode = false;
+            cout<<line<<": ) is missing!"<<endl;
+        }
+        
     }
     else
     {

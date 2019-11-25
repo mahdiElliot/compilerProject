@@ -13,6 +13,7 @@ bool validCode = true;
 const short T_num = 1;
 const short T_list = 2;
 
+//node for a variable or a function
 struct table{
     string variable;
     short type;
@@ -21,11 +22,13 @@ struct table{
     vector<table> list;
 };
 
+//type and val of a expression
 struct exprVal{
     string tok;
     short type;
 };
 
+//for searching a variable in symbol table
 int search(vector<table> symbolTable, string find)
 {
     for(int i=0 ; i<symbolTable.size();i++)
@@ -190,10 +193,7 @@ bool isKey(string word)
 bool Letter(string letter)
 {
     bool valid=false;
-    if(!Main(letter) && !If(letter) && !Else(letter) && !For(letter) && 
-    !While(letter) && !In(letter) && !Return(letter) && !num(letter) &&
-    !list(letter) && !local(letter) && !numread(letter) && !numprint(letter) &&
-    !vec(letter) && !veclen(letter) && !exit(letter))
+    if(!isKey(letter))
             if((int(letter[0])>=65 && int(letter[0])<=90) || 
             (int(letter[0])>=97 && int(letter[0]<=122))
             || letter[0] == '_')
