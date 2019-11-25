@@ -391,7 +391,7 @@ void clist(ifstream &file, int funcPosition, vector<table> &symbolTable, string 
 int main()
 {
     ifstream file;
-    file.open("tslang", ios::in);
+    file.open("tslang.txt", ios::in);
     vector<table> symbolTable;
 
     //////////adding existing functions//////
