@@ -1,0 +1,15 @@
+sum3(a: num, b: num, c: num): num
+{
+return a + b + c;
+}
+main(): num
+{
+local a: num;
+local b: num;
+local c: num;
+a = numread();
+b = numread();
+c = numread();
+numprint(sum3(a, b, c));
+return 0;
+}
